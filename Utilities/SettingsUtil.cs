@@ -59,9 +59,13 @@ namespace DNNConnect.CKEditorProvider.Utilities
         /// <returns>Returns if The Module Settings Exists or not.</returns>
         internal static bool CheckExistsModuleSettings(string moduleKey, int moduleId)
         {
-            var hshModSet = ModuleController.Instance.GetModule(moduleId, Null.NullInteger, false).ModuleSettings;
-
-            return hshModSet.Keys.Cast<string>().Any(key => key.StartsWith(moduleKey));
+            var module = ModuleController.Instance.GetModule(moduleId, Null.NullInteger, false);
+            if (module != null)
+            {
+                var hshModSet = module.ModuleSettings;
+                return hshModSet != null && hshModSet.Keys.Cast<string>().Any(key => key.StartsWith(moduleKey));
+            }
+            return false;
         }
 
         /// <summary>
@@ -72,9 +76,14 @@ namespace DNNConnect.CKEditorProvider.Utilities
         /// <returns>Returns if The Module Settings Exists or not.</returns>
         internal static bool CheckExistsModuleInstanceSettings(string moduleKey, int moduleId)
         {
-            var hshModSet = ModuleController.Instance.GetModule(moduleId, Null.NullInteger, false).ModuleSettings;
+            var module = ModuleController.Instance.GetModule(moduleId, Null.NullInteger, false);
+            if (module != null)
+            {
+                var hshModSet = module.ModuleSettings;
 
-            return !string.IsNullOrEmpty((string)hshModSet[string.Format("{0}skin", moduleKey)]);
+                return hshModSet != null && !string.IsNullOrEmpty((string) hshModSet[string.Format("{0}skin", moduleKey)]);
+            }
+            return false;
         }
 
         /// <summary>
@@ -319,7 +328,7 @@ namespace DNNConnect.CKEditorProvider.Utilities
                                                setting =>
                                                setting.Name.Equals(
                                                    string.Format(
-                                                       "{0}{2}#{1}",
+                                                       "{0}{1}#{2}",
                                                        key,
                                                        objRole.RoleID,
                                                        SettingConstants.UPLOADFILELIMITS)))
@@ -329,7 +338,7 @@ namespace DNNConnect.CKEditorProvider.Utilities
                                                    s =>
                                                    s.Name.Equals(
                                                        string.Format(
-                                                           "{0}{2}#{1}",
+                                                           "{0}{1}#{2}",
                                                            key,
                                                            objRole.RoleID,
                                                            SettingConstants.UPLOADFILELIMITS))).Value)
@@ -338,21 +347,21 @@ namespace DNNConnect.CKEditorProvider.Utilities
                                                s =>
                                                s.Name.Equals(
                                                    string.Format(
-                                                       "{0}{2}#{1}",
+                                                       "{0}{1}#{2}",
                                                        key,
                                                        objRole.RoleID,
                                                        SettingConstants.UPLOADFILELIMITS))).Value
                                        select
-                                           new UploadSizeRoles { RoleId = objRole.RoleID, UploadFileLimit = Convert.ToInt32(uploadFileLimit) })
+                                           new UploadSizeRoles { RoleId = objRole.RoleID, RoleName = objRole.RoleName, UploadFileLimit = Convert.ToInt32(uploadFileLimit) })
                 .ToList();
 
             if (
                 filteredSettings.Any(
-                    setting => setting.Name.Equals(string.Format("{0}{2}#{1}", key, "-1", SettingConstants.UPLOADFILELIMITS))))
+                    setting => setting.Name.Equals(string.Format("{0}{1}#{2}", key, "-1", SettingConstants.UPLOADFILELIMITS))))
             {
                 var settingValue =
                     filteredSettings.FirstOrDefault(
-                        s => s.Name.Equals(string.Format("{0}{2}#{1}", key, "-1", SettingConstants.UPLOADFILELIMITS))).Value;
+                        s => s.Name.Equals(string.Format("{0}{1}#{2}", key, "-1", SettingConstants.UPLOADFILELIMITS))).Value;
 
                 if (!string.IsNullOrEmpty(settingValue))
                 {
@@ -776,7 +785,14 @@ namespace DNNConnect.CKEditorProvider.Utilities
         /// </returns>
         internal static EditorProviderSettings LoadModuleSettings(PortalSettings portalSettings, EditorProviderSettings currentSettings, string key, int moduleId, IList<RoleInfo> portalRoles)
         {
-            var hshModSet = ModuleController.Instance.GetModule(moduleId, Null.NullInteger, false).ModuleSettings;
+            Hashtable hshModSet = null;
+            var module = ModuleController.Instance.GetModule(moduleId, Null.NullInteger, false);
+            if (module != null)
+            {
+                hshModSet = module.ModuleSettings;
+            }
+
+            hshModSet = hshModSet ?? new Hashtable();
 
             var roles = new ArrayList();
 
@@ -786,7 +802,7 @@ namespace DNNConnect.CKEditorProvider.Utilities
                     GetEditorConfigProperties()
                         .Where(
                             info =>
-                            !string.IsNullOrEmpty((string)hshModSet[string.Format("{0}{1}", key, info.Name)])
+                            hshModSet != null && !string.IsNullOrEmpty((string)hshModSet[string.Format("{0}{1}", key, info.Name)])
                 /*|| info.Name.Equals("CodeMirror") || info.Name.Equals("WordCount")*/))
             {
                 switch (info.PropertyType.Name)
@@ -949,15 +965,15 @@ namespace DNNConnect.CKEditorProvider.Utilities
                                        where
                                            !string.IsNullOrEmpty(
                                                (string)
-                                               hshModSet[string.Format("{0}{2}#{1}", key, objRole.RoleID, SettingConstants.UPLOADFILELIMITS)])
+                                               hshModSet[string.Format("{0}{1}#{2}", key, objRole.RoleID, SettingConstants.UPLOADFILELIMITS)])
                                        let uploadFileLimit =
                                            (string)
-                                           hshModSet[string.Format("{0}{2}#{1}", key, objRole.RoleID, SettingConstants.UPLOADFILELIMITS)]
+                                           hshModSet[string.Format("{0}{1}#{2}", key, objRole.RoleID, SettingConstants.UPLOADFILELIMITS)]
                                        select
                                            new UploadSizeRoles { RoleId = objRole.RoleID, UploadFileLimit = Convert.ToInt32(uploadFileLimit) })
                 .ToList();
 
-            if (!string.IsNullOrEmpty((string)hshModSet[string.Format("{0}{2}#{1}", key, "-1", SettingConstants.UPLOADFILELIMITS)]))
+            if (!string.IsNullOrEmpty((string)hshModSet[string.Format("{0}{1}#{2}", key, "-1", SettingConstants.UPLOADFILELIMITS)]))
             {
                 listUploadSizeRoles.Add(
                     new UploadSizeRoles
