@@ -1136,7 +1136,9 @@ namespace DNNConnect.CKEditorProvider.Web
                 {
                     if (key.IndexOf("ck_", StringComparison.OrdinalIgnoreCase) == 0)
                     {
-                        string sAdjustedKey = key.Substring(3, key.Length - 3).ToLower();
+                        string sAdjustedKey = key.Substring(3, key.Length - 3);
+                        //.ToLower();
+                        //Do not ToLower settingKey, because CKConfig is case-Sensitive, exp: image2_prefillDimension
 
                         if (!string.IsNullOrEmpty(sAdjustedKey))
                         {
@@ -1362,7 +1364,7 @@ namespace DNNConnect.CKEditorProvider.Web
             //{
             var postBackScript =
                 string.Format(
-                     @" if (CKEDITOR && CKEDITOR.instances && CKEDITOR.instances.{0}) {{ CKEDITOR.instances.{0}.updateElement();  if (typeof Page_IsValid !== 'undefined' && !Page_IsValid) return; CKEDITOR.instances.{0}.destroy(); }}",
+                     @" if (CKEDITOR && CKEDITOR.instances && CKEDITOR.instances.{0}) {{ CKEDITOR.instances.{0}.updateElement();  if (typeof Page_IsValid !== 'undefined' && Page_IsValid) CKEDITOR.instances.{0}.destroy(); }}",
                     editorFixedId);
 
             RegisterOnSubmitStatement(

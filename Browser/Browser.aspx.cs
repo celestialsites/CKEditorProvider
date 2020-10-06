@@ -20,7 +20,7 @@ using DNNConnect.CKEditorProvider.Controls;
 using DNNConnect.CKEditorProvider.Objects;
 using DNNConnect.CKEditorProvider.Utilities;
 using DotNetNuke.Common.Utilities;
-using DotNetNuke.Entities.Controllers;
+using DotNetNuke.Entities.Host;
 using DotNetNuke.Entities.Portals;
 using DotNetNuke.Entities.Tabs;
 using DotNetNuke.Entities.Users;
@@ -40,7 +40,6 @@ using DNNConnect.CKEditorProvider.Helper;
 
 namespace DNNConnect.CKEditorProvider.Browser
 {
-
     /// <summary>
     /// The browser.
     /// </summary>
@@ -57,14 +56,14 @@ namespace DNNConnect.CKEditorProvider.Browser
         private static string ckFileUrl;
 
         /// <summary>
-        ///   The allowed flash ext.
+        ///   The allowed flash extensions.
         /// </summary>
-        private readonly string[] allowedFlashExt = { "swf", "flv", "mp3" };
+        private static readonly ISet<string> AllowedFlashExtensions = new HashSet<string>(new[] { "swf", "flv", "mp3" }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        ///   The allowed image ext.
+        ///   The allowed image extensions.
         /// </summary>
-        private readonly string[] allowedImageExt = { "bmp", "gif", "jpeg", "jpg", "png", "svg" };
+        private static readonly ISet<string> AllowedImageExtensions = new HashSet<string>(new[] { "bmp", "gif", "jpeg", "jpg", "png", "svg" }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         ///   The request.
@@ -84,7 +83,7 @@ namespace DNNConnect.CKEditorProvider.Browser
         /// <summary>
         ///   The extension white list.
         /// </summary>
-        private string extensionWhiteList;
+        private FileExtensionWhitelist extensionWhiteList;
 
         /// <summary>
         /// The browser modus
@@ -209,10 +208,30 @@ namespace DNNConnect.CKEditorProvider.Browser
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether [sort files Ascending].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [sort files Ascending].
+        /// </value>
+        private bool SortFilesAscending
+        {
+            get
+            {
+                return ViewState["SortFilesAscending"] != null && (bool)ViewState["SortFilesAscending"];
+            }
+
+            set
+            {
+                ViewState["SortFilesAscending"] = value;
+                FilesTable = null;
+            }
+        }
+
+        /// <summary>
         /// Gets or sets a value indicating whether [sort files descending].
         /// </summary>
         /// <value>
-        ///   <c>true</c> if [sort files descending]; otherwise sort ascending.
+        ///   <c>true</c> if [sort files descending].
         /// </value>
         private bool SortFilesDescending
         {
@@ -224,6 +243,46 @@ namespace DNNConnect.CKEditorProvider.Browser
             set
             {
                 ViewState["SortFilesDescending"] = value;
+                FilesTable = null;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [sort files by Ascending Date].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [sort files by ascending date].
+        /// </value>
+        private bool SortFilesDateAscending
+        {
+            get
+            {
+                return ViewState["SortFilesDateAscending"] != null && (bool)ViewState["SortFilesDateAscending"];
+            }
+
+            set
+            {
+                ViewState["SortFilesDateAscending"] = value;
+                FilesTable = null;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [sort files by descending Date].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [sort files by descending date]; otherwise sort by ascending Date.
+        /// </value>
+        private bool SortFilesDateDescending
+        {
+            get
+            {
+                return ViewState["SortFilesDateDescending"] != null && (bool)ViewState["SortFilesDateDescending"];
+            }
+
+            set
+            {
+                ViewState["SortFilesDateDescending"] = value;
                 FilesTable = null;
             }
         }
@@ -275,9 +334,24 @@ namespace DNNConnect.CKEditorProvider.Browser
             //Get the files
             var files = FolderManager.Instance.GetFiles(currentFolderInfo).ToList();
 
+            if(SortFilesAscending)
+            {
+                Utility.SortAscending(files, item => item.FileName);
+            }
+
             if (SortFilesDescending)
             {
                 Utility.SortDescending(files, item => item.FileName);
+            }
+
+            if (SortFilesDateAscending)
+            {
+                Utility.SortAscending(files, item => item.CreatedOnDate);
+            }
+
+            if (SortFilesDateDescending)
+            {
+                Utility.SortDescending(files, item => item.CreatedOnDate);
             }
 
             foreach (var fileItem in files)
@@ -297,7 +371,7 @@ namespace DNNConnect.CKEditorProvider.Browser
                 {
                     case "Image":
                         {
-                            if (Array.IndexOf(allowedImageExt, extension) >= 0)
+                            if (AllowedImageExtensions.Contains(extension))
                             {
                                 var dr = filesTable.NewRow();
 
@@ -320,7 +394,7 @@ namespace DNNConnect.CKEditorProvider.Browser
                         break;
                     case "Flash":
                         {
-                            if (Array.IndexOf(allowedFlashExt, extension) >= 0)
+                            if (AllowedFlashExtensions.Contains(extension))
                             {
                                 var dr = filesTable.NewRow();
 
@@ -350,7 +424,7 @@ namespace DNNConnect.CKEditorProvider.Browser
                                 extension = extension.Replace(".", string.Empty);
                             }
 
-                            if (extension.Count() <= 1 || !extensionWhiteList.Contains(extension.ToLower()))
+                            if (extension.Count() <= 1 || !extensionWhiteList.IsAllowedExtension(extension))
                             {
                                 continue;
                             }
@@ -368,7 +442,7 @@ namespace DNNConnect.CKEditorProvider.Browser
                                 dr["PictureURL"] = "images/types/unknown.png";
                             }
 
-                            if (allowedImageExt.Any(sAllowImgExt => name.ToLower().EndsWith(sAllowImgExt)))
+                            if (AllowedImageExtensions.Any(sAllowImgExt => name.EndsWith(sAllowImgExt, StringComparison.OrdinalIgnoreCase)))
                             {
                                 dr["PictureUrl"] = FileManager.Instance.GetUrl(fileItem);
                             }
@@ -649,7 +723,7 @@ namespace DNNConnect.CKEditorProvider.Browser
                 string.Format(
                     "var E = window.top.opener;E.CKEDITOR.tools.callFunction({0},'{1}','{2}') ;self.close();",
                     funcNum,
-                    fileUrl,
+                    fileUrl.Replace("'", "\\'"),
                     errorMsg.Replace("'", "\\'"));
         }
 
@@ -704,10 +778,12 @@ namespace DNNConnect.CKEditorProvider.Browser
         /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
         protected void SortAscendingClick(object sender, EventArgs e)
         {
+            SortFilesAscending = true;
             SortFilesDescending = false;
+            SortFilesDateAscending = false;
+            SortFilesDateDescending = false;
 
-            SortAscending.CssClass = SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
-            SortDescending.CssClass = !SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
+            SetSortButtonClasses();
 
             ShowFilesIn(GetCurrentFolder(), true);
 
@@ -725,10 +801,12 @@ namespace DNNConnect.CKEditorProvider.Browser
         /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
         protected void SortDescendingClick(object sender, EventArgs e)
         {
+            SortFilesAscending = false;
             SortFilesDescending = true;
+            SortFilesDateAscending = false;
+            SortFilesDateDescending = false;
 
-            SortAscending.CssClass = SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
-            SortDescending.CssClass = !SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
+            SetSortButtonClasses();
 
             ShowFilesIn(GetCurrentFolder(), true);
 
@@ -737,6 +815,63 @@ namespace DNNConnect.CKEditorProvider.Browser
 
             FileId.Text = null;
             lblFileName.Text = null;
+        }
+
+        /// <summary>
+        /// Sorts the Files by Date in ascending order
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
+        protected void SortByDateAscendingClick(object sender, EventArgs e)
+        {
+            SortFilesAscending = false;
+            SortFilesDescending = false;
+            SortFilesDateAscending = true;
+            SortFilesDateDescending = false;
+
+            SetSortButtonClasses();
+
+            ShowFilesIn(GetCurrentFolder(), true);
+
+            // Reset selected file
+            SetDefaultLinkTypeText();
+
+            FileId.Text = null;
+            lblFileName.Text = null;
+        }
+
+        /// <summary>
+        /// Sorts the Files by Date in descending order
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
+        protected void SortByDateDescendingClick(object sender, EventArgs e)
+        {
+            SortFilesAscending = false;
+            SortFilesDescending = false;
+            SortFilesDateAscending = false;
+            SortFilesDateDescending = true;
+
+            SetSortButtonClasses();
+
+            ShowFilesIn(GetCurrentFolder(), true);
+
+            // Reset selected file
+            SetDefaultLinkTypeText();
+
+            FileId.Text = null;
+            lblFileName.Text = null;
+        }
+
+        /// <summary>
+        /// Sets the sort button classes.
+        /// </summary>
+        private void SetSortButtonClasses()
+        {
+            SortAscending.CssClass = !SortFilesAscending ? "ButtonNormal" : "ButtonSelected";
+            SortDescending.CssClass = !SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
+            SortByDateAscending.CssClass = !SortFilesDateAscending ? "ButtonNormal" : "ButtonSelected";
+            SortByDateDescending.CssClass = !SortFilesDateDescending ? "ButtonNormal" : "ButtonSelected";
         }
 
         /// <summary>
@@ -759,10 +894,9 @@ namespace DNNConnect.CKEditorProvider.Browser
         {
             JavaScript.RequestRegistration(CommonJs.jQuery);
 
-            SortAscending.CssClass = SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
-            SortDescending.CssClass = !SortFilesDescending ? "ButtonNormal" : "ButtonSelected";
+            SetSortButtonClasses();
 
-            extensionWhiteList = HostController.Instance.GetString("FileExtensions").ToLower();
+            extensionWhiteList = Host.AllowedExtensionWhitelist;
 
             if (!string.IsNullOrEmpty(request.QueryString["mode"]))
             {
@@ -856,7 +990,7 @@ namespace DNNConnect.CKEditorProvider.Browser
 
                         if (!IsPostBack)
                         {
-                            GetAcceptedFileTypes();
+                            AcceptFileTypes = GetAcceptedFileTypes();
 
                             title.InnerText = string.Format("{0} - DNNConnect.CKEditorProvider.FileBrowser", lblModus.Text);
 
@@ -1150,10 +1284,7 @@ namespace DNNConnect.CKEditorProvider.Browser
 
             txtThumbName.Text = string.Format("{0}_resized", sFileNameNoExt);
 
-            string sExtension = fileInfo.Extension;
-            bool bEnable = allowedImageExt.Any(sAllowExt => sAllowExt.Equals(sExtension, StringComparison.OrdinalIgnoreCase));
-
-            if (!bEnable)
+            if (!AllowedImageExtensions.Contains(fileInfo.Extension))
             {
                 return;
             }
@@ -2071,6 +2202,20 @@ namespace DNNConnect.CKEditorProvider.Browser
                  Localization.GetString("SortDescending.Help", ResXFile, LanguageCode));
             SortDescending.ToolTip = Localization.GetString("SortDescending.Help", ResXFile, LanguageCode);
 
+            SortByDateAscending.Text = string.Format(
+                 "<img src=\"Images/AscendingArrow.png\" alt=\"{0}\" title=\"{1}\" />{2}",
+                 Localization.GetString("SortByDateAscending.Text", ResXFile, LanguageCode),
+                 Localization.GetString("SortByDateAscending.Help", ResXFile, LanguageCode),
+                 Localization.GetString("SortByDate.Text", ResXFile, LanguageCode));
+            SortByDateAscending.ToolTip = Localization.GetString("SortByDateAscending.Help", ResXFile, LanguageCode);
+
+            SortByDateDescending.Text = string.Format(
+                 "<img src=\"Images/DescendingArrow.png\" alt=\"{0}\" title=\"{1}\" />{2}",
+                 Localization.GetString("SortByDateDescending.Text", ResXFile, LanguageCode),
+                 Localization.GetString("SortByDateDescending.Help", ResXFile, LanguageCode),
+                 Localization.GetString("SortByDate.Text", ResXFile, LanguageCode));
+            SortByDateDescending.ToolTip = Localization.GetString("SortByDateDescending.Help", ResXFile, LanguageCode);
+
             ClientAPI.AddButtonConfirm(cmdDelete, Localization.GetString("AreYouSure.Text", ResXFile, LanguageCode));
 
             SetDefaultLinkTypeText();
@@ -2143,11 +2288,8 @@ namespace DNNConnect.CKEditorProvider.Browser
 
                 rblLinkType.Items[0].Selected = true;
 
-                var extension = Path.GetExtension(fileName);
-                extension = extension.TrimStart('.');
+                var isAllowedExtension = AllowedImageExtensions.Contains(Path.GetExtension(fileName).TrimStart('.'));
 
-                var isAllowedExtension =
-                    allowedImageExt.Any(sAllowExt => sAllowExt.Equals(extension, StringComparison.OrdinalIgnoreCase));
 
                 cmdResizer.Enabled = cmdResizer.Enabled && isAllowedExtension;
                 cmdResizer.CssClass = cmdResizer.Enabled ? "LinkNormal" : "LinkDisabled";
@@ -2297,21 +2439,21 @@ namespace DNNConnect.CKEditorProvider.Browser
             switch (command)
             {
                 case "FlashUpload":
-                    if (allowedFlashExt.Any(sAllowExt => sAllowExt.Equals(sExtension.ToLower())))
+                    if (AllowedFlashExtensions.Contains(sExtension))
                     {
                         bAllowUpl = true;
                     }
 
                     break;
                 case "ImageUpload":
-                    if (allowedImageExt.Any(sAllowExt => sAllowExt.Equals(sExtension, StringComparison.OrdinalIgnoreCase)))
+                    if (AllowedImageExtensions.Contains(sExtension))
                     {
                         bAllowUpl = true;
                     }
 
                     break;
                 case "FileUpload":
-                    if (extensionWhiteList.Contains(sExtension.ToLower()))
+                    if (extensionWhiteList.IsAllowedExtension(sExtension))
                     {
                         bAllowUpl = true;
                     }
@@ -3063,24 +3205,17 @@ namespace DNNConnect.CKEditorProvider.Browser
                     spaceAvailable);
         }
 
-        /// <summary>
-        /// Gets the accepted file types.
-        /// </summary>
-        private void GetAcceptedFileTypes()
+        /// <summary>Gets the accepted file types.</summary>
+        private string GetAcceptedFileTypes()
         {
             switch (browserModus)
             {
                 case "Flash":
-                    AcceptFileTypes = string.Join("|", allowedFlashExt);
-
-                    break;
+                    return string.Join("|", AllowedFlashExtensions);
                 case "Image":
-                    AcceptFileTypes = string.Join("|", allowedImageExt);
-
-                    break;
+                    return string.Join("|", AllowedImageExtensions);
                 default:
-                    AcceptFileTypes = extensionWhiteList.Replace(",", "|");
-                    break;
+                    return extensionWhiteList.ToStorageString().Replace(",", "|");
             }
         }
 
